@@ -3,6 +3,8 @@ import { ExternalLink, ShieldCheck, Webhook } from "lucide-react";
 import { ApiKeys } from "@/pages/DeveloperHub";
 import { ConsoleCard, ConsolePage } from "@/components/console/ConsolePage";
 import { Button } from "@/components/ui/button";
+import { CodeBlock } from "@/components/console/CodeBlock";
+import { handleUpdatedSample } from "@/lib/oauth/integration-templates";
 
 export const Route = createFileRoute("/_authenticated/console/api")({
   head: () => ({ meta: [
@@ -22,6 +24,12 @@ function ApiConsole() {
         </ConsoleCard>
         <ConsoleCard title="Webhooks" description="Signed event delivery will be managed here.">
           <div className="flex items-start gap-3 text-sm text-muted-foreground"><Webhook className="mt-0.5 h-4 w-4 shrink-0" /><p>Endpoint registration and delivery logs are being prepared.</p></div>
+        </ConsoleCard>
+        <ConsoleCard title="user.handle.updated" description="Preview: ROUT pushes handle changes to apps with Universal Handle Sync.">
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">Sent as a signed POST when a member changes their @handle. Match on <code>sub</code> and update your username.</p>
+            <CodeBlock label="POST · header x-rout-signature: t=…,v1=…" code={handleUpdatedSample("rout_your_client_id")} />
+          </div>
         </ConsoleCard>
         <div className="flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4" /> Secret keys belong on your server only.</div>
       </div>

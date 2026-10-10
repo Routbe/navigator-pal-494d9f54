@@ -73,6 +73,19 @@ if (p.get("code")) {
         {!app.accountDiscoveryEnabled && <p className="mt-3 text-xs text-muted-foreground">While off, every <code>prompt=none</code> request returns <code>interaction_required</code>.</p>}
       </ConsoleCard>
 
+      <ConsoleCard title="Universal Handle Sync">
+        <div className="flex items-start gap-4">
+          <div className="flex-1 space-y-1">
+            <span className="inline-block rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Premium</span>
+            <p className="text-sm text-muted-foreground">
+              Opt-in to use ROUT as the Single Source of Truth for usernames. We will include the sovereign <code>@handle</code> in the OIDC UserInfo endpoint and prevent username squatting on your platform.
+            </p>
+            <p className="text-xs text-muted-foreground">Sent as the <code>rout_handle</code> claim when the <code>profile</code> scope is granted.</p>
+          </div>
+          <Switch aria-label="Universal Handle Sync" checked={app.handleSyncEnabled} disabled={saving} onCheckedChange={(on) => persist({ handleSyncEnabled: on })} />
+        </div>
+      </ConsoleCard>
+
       <ConsoleCard title="Rich Identity">
         <div className="flex items-start gap-4">
           <p className="flex-1 text-sm text-muted-foreground">

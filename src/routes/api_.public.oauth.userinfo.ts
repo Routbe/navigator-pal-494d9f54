@@ -35,9 +35,10 @@ async function handle(request: Request): Promise<Response> {
     );
   }
   try {
-    const { verifyAccessToken, identityClaims } = await import("@/lib/oauth/provider.server");
-    const { sub, scopes } = await verifyAccessToken(auth.slice(7).trim());
-    const claims = await identityClaims(sub, scopes);
+    const { verifyAccessToken, identityClaims, getClientByClientId } = await import("@/lib/oauth/provider.server");
+    const { sub, scopes, clientId } = await verifyAccessToken(auth.slice(7).trim());
+    const client = clientId ? await getClientByClientId(clientId) : null;
+    const claims = await identityClaims(sub, scopes, { handleSync: Boolean(client?.handleSyncEnabled) });
     return Response.json({ sub, ...claims }, { headers });
   } catch (error) {
     const known = error as { message?: string };

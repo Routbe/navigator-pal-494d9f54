@@ -17,6 +17,7 @@ export type ConsoleApp = {
   createdAt: string;
   flowPreference: "seamless" | "strict";
   richIdentityEnabled: boolean;
+  handleSyncEnabled: boolean;
   publishingStatus: "testing" | "production";
   supportEmail: string | null;
   legalOwner: string | null;
@@ -64,6 +65,7 @@ export type AppPatch = Partial<
     | "scopes"
     | "flowPreference"
     | "richIdentityEnabled"
+    | "handleSyncEnabled"
   >
 >;
 
@@ -103,6 +105,7 @@ export function useSaveApp() {
         scopes: next.scopes as ("openid" | "profile" | "email" | "linked_accounts")[],
         flowPreference: next.flowPreference,
         richIdentityEnabled: next.richIdentityEnabled,
+        handleSyncEnabled: next.handleSyncEnabled,
       },
     });
     await qc.invalidateQueries({ queryKey: APPS_KEY });
