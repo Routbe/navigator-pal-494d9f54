@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { CodeBlock } from "@/components/CodeBlock";
-import { DISCOVERY_URL } from "@/lib/oauth/integration-templates";
+import { DISCOVERY_URL, handleUpdatedSample, WEBHOOK_VERIFY_SNIPPET } from "@/lib/oauth/integration-templates";
+
+const HANDLE_SAMPLE = handleUpdatedSample("rout_your_client_id");
 import { RATE_RULES } from "@/lib/rate-limit-rules";
 
 const TITLE = "Developers — Login met ROUT, verificaties en API";
@@ -26,6 +28,7 @@ const NAV = [
   { id: "pkce", label: "Code-flow met PKCE" },
   { id: "claims", label: "Scopes en claims" },
   { id: "client", label: "Je eigen app bouwen" },
+  { id: "handle-sync", label: "Universal Handle Sync" },
   { id: "verifications", label: "Hoe verificaties werken" },
   { id: "api", label: "API-overzicht" },
   { id: "errors", label: "Foutcodes en limieten" },
@@ -142,10 +145,10 @@ function DevelopersPage() {
                 <thead className="bg-muted/50 text-left"><tr><th className="p-3">Scope</th><th className="p-3">Claims</th></tr></thead>
                 <tbody className="divide-y divide-border">
                   <tr><td className="p-3 font-mono">openid</td><td className="p-3 text-muted-foreground"><code>sub</code> — vaste, unieke ROUT-ID</td></tr>
-                  <tr><td className="p-3 font-mono">profile</td><td className="p-3 text-muted-foreground"><code>name</code>, <code>preferred_username</code>, <code>picture</code></td></tr>
+                  <tr><td className="p-3 font-mono">profile</td><td className="p-3 text-muted-foreground"><code>name</code>, <code>preferred_username</code>, <code>picture</code>; plus <code>rout_handle</code> als de app Universal Handle Sync aanzet</td></tr>
                   <tr><td className="p-3 font-mono">email</td><td className="p-3 text-muted-foreground"><code>email</code>, <code>email_verified</code></td></tr>
                   <tr><td className="p-3 font-mono">linked_accounts</td><td className="p-3 text-muted-foreground">Gekoppelde sociale accounts die de gebruiker deelt</td></tr>
-                  <tr><td className="p-3 font-mono">Rich Identity</td><td className="p-3 text-muted-foreground"><code>is_verified_person</code>, <code>is_verified_business</code>, <code>is_influencer</code> — alleen als de app dit aanzet en de gebruiker toestemt</td></tr>
+                  <tr><td className="p-3 font-mono">Rich Identity</td><td className="p-3 text-muted-foreground"><code>rout_public_activity</code> (lijst van <code>kind</code>, <code>title</code>, <code>occurred_at</code>) in het id_token — alleen als de app dit aanzet én de gebruiker het vakje aanvinkt</td></tr>
                 </tbody>
               </table>
             </div>
@@ -160,10 +163,18 @@ function DevelopersPage() {
               <li><b className="text-foreground">Callback</b> op <code>/auth/callback/rout</code>: controleer state, wissel de code in op de server, controleer het id_token (ES256 via JWKS; iss, aud, exp, nonce).</li>
               <li><b className="text-foreground">Sessie:</b> maak je eigen sessiecookie. Tokens komen nooit in browser-JavaScript.</li>
               <li><b className="text-foreground">Koppelen:</b> bestaat er al een gebruiker met hetzelfde <i>geverifieerde</i> e-mailadres, koppel ROUT dan aan dat account (in <code>user_identities</code>) in plaats van een dubbel account te maken. Anders: nieuw account met <code>rout_id = sub</code>.</li>
-              <li><b className="text-foreground">Badges:</b> werk de badge-velden bij elke login bij vanuit de claims. Vertrouw nooit invoer uit de browser.</li>
+              <li><b className="text-foreground">Rich Identity:</b> overschrijf <code>rout_public_activity</code> bij elke login vanuit het id_token en wis het als de claim ontbreekt. Vertrouw nooit invoer uit de browser.</li>
               <li><b className="text-foreground">Fouten:</b> vertaal <code>?error=</code> naar een vriendelijke melding (zie <a href="#errors" className="underline">foutcodes</a>).</li>
             </ul>
             <CodeBlock code={SCHEMA_SQL} language="sql" />
+          </section>
+
+          <section id="handle-sync" className="scroll-mt-24 space-y-4">
+            <h2>Universal Handle Sync en webhooks</h2>
+            <p>Zet Universal Handle Sync aan in de console om ROUT de bron van gebruikersnamen te maken. Met de scope <code>profile</code> krijg je dan de claim <code>rout_handle</code> (in het id_token en via userinfo). Gebruik die als unieke <code>username</code>, maar koppel gebruikers altijd op <code>sub</code>: een handle kan veranderen.</p>
+            <p>Verandert een lid zijn handle, dan stuurt ROUT een ondertekende POST <code>user.handle.updated</code> naar je webhook (voorbeeld; levering wordt binnenkort geactiveerd). Controleer de header <code>x-rout-signature: t=…,v1=…</code> (HMAC-SHA256 over <code>t.body</code>, maximaal 5 minuten oud) en sla verwerkte event-id's op.</p>
+            <CodeBlock code={HANDLE_SAMPLE} language="json" />
+            <CodeBlock code={WEBHOOK_VERIFY_SNIPPET} language="javascript" />
           </section>
 
           <section id="verifications" className="scroll-mt-24 space-y-4">
