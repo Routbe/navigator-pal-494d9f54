@@ -25,8 +25,9 @@ export function AvatarDecorationPicker({
 }: {
   value: AvatarDecoration;
   onChange: (next: AvatarDecoration) => void;
-  presence: PresenceStatus;
-  onPresenceChange: (next: PresenceStatus) => void;
+  /** @deprecated status lives in the Links tab now; kept optional for old callers. */
+  presence?: PresenceStatus;
+  onPresenceChange?: (next: PresenceStatus) => void;
   avatarUrl: string;
   frame: AvatarFrame;
   theme: FrameTheme;
@@ -51,31 +52,16 @@ export function AvatarDecorationPicker({
         )}
       />
 
-      <div className="space-y-2 border-t border-border pt-4">
-        <p className="input-label">Statusbolletje</p>
-        <div className="flex flex-wrap gap-2">
-          {PRESENCE_DEFS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => onPresenceChange(p.id)}
-              aria-pressed={presence === p.id}
-              title={p.hint}
-              className={cn(
-                "flex h-9 items-center gap-2 rounded-full border px-3 text-[11px] font-medium transition-colors",
-                presence === p.id ? "border-primary/50 bg-primary/10" : "border-border",
-              )}
-            >
-              <span
-                aria-hidden
-                className="h-2.5 w-2.5 rounded-full border border-border"
-                style={{ background: p.color }}
-              />
-              {p.label}
-            </button>
-          ))}
+      {onPresenceChange && presence !== undefined && (
+        <div className="space-y-2 border-t border-border pt-4">
+          <p className="input-label">Statusbolletje</p>
+          <div className="flex flex-wrap gap-2">
+            {PRESENCE_DEFS.map((p) => (
+              <button key={p.id} type="button" onClick={() => onPresenceChange(p.id)} aria-pressed={presence === p.id} className={cn("h-9 rounded-full border px-3 text-[11px]", presence === p.id ? "border-primary/50 bg-primary/10" : "border-border")}>{p.label}</button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

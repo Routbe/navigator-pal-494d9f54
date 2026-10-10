@@ -5,6 +5,7 @@ import { FileUploadInput } from "@/components/FileUploadInput";
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { AvatarFramePicker } from "@/components/studio/AvatarFramePicker";
 import { AvatarDecorationPicker } from "@/components/studio/AvatarDecorationPicker";
+import { StatusDesignSettings } from "@/components/dashboard/editor/StatusSettings";
 import { FaviconUploader } from "@/components/studio/FaviconUploader";
 import { VisitEffectPicker } from "@/components/studio/VisitEffectPicker";
 import {
@@ -138,13 +139,11 @@ export function ProfileThemePicker({
           <div className="space-y-2 border-t border-border pt-4">
             <p className="input-label">Avatardecoratie &amp; status</p>
             <p className="text-xs text-muted-foreground">
-              Oortjes, halo, koptelefoon &hellip; bovenop je avatar, plus een statusbolletje.
+              Oortjes, halo, koptelefoon &hellip; bovenop je avatar.
             </p>
             <AvatarDecorationPicker
               value={prefs.avatarDecoration}
               onChange={(d) => setPref("avatarDecoration", d)}
-              presence={prefs.presence}
-              onPresenceChange={(v) => setPref("presence", v)}
               avatarUrl={avatarUrl}
               frame={prefs.avatarFrame}
               theme={themeOf(theme)}
@@ -169,19 +168,7 @@ export function ProfileThemePicker({
               ))}
             </div>
           </div>
-          <div className="space-y-1.5">
-            <p className="input-label">Statuslijn</p>
-            <Input
-              value={prefs.statusLine ?? ""}
-              maxLength={60}
-              onChange={(e) => setPref("statusLine", e.target.value || null)}
-              placeholder="Beschikbaar voor werk"
-              className="h-10 text-xs"
-            />
-            <p className="text-xs text-muted-foreground">
-              Max. 60 tekens, verschijnt onder je handle.
-            </p>
-          </div>
+          <StatusDesignSettings prefs={prefs} setPref={setPref} avatarUrl={avatarUrl} theme={themeOf(theme)} />
 
           <div className="space-y-2 border-t border-border pt-4">
             <label className="input-label">Favicon (optioneel)</label>
