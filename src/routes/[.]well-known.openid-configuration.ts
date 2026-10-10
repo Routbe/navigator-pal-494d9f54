@@ -6,6 +6,7 @@ export const Route = createFileRoute("/.well-known/openid-configuration")({
     handlers: {
       GET: async () => {
         const { issuer, SUPPORTED_SCOPES } = await import("@/lib/oauth/provider.server");
+        const { CLAIMS_SUPPORTED } = await import("@/lib/oauth/integration-templates");
         const iss = issuer();
         return Response.json(
           {
@@ -19,6 +20,7 @@ export const Route = createFileRoute("/.well-known/openid-configuration")({
             subject_types_supported: ["public"],
             id_token_signing_alg_values_supported: ["ES256"],
             scopes_supported: [...SUPPORTED_SCOPES],
+            claims_supported: [...CLAIMS_SUPPORTED],
             code_challenge_methods_supported: ["S256"],
             token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic", "none"],
           },
