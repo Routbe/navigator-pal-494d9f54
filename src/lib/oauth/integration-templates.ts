@@ -155,3 +155,42 @@ model UserIdentity {
   }
   return out;
 }
+
+/* ------------------------------------------- Universal Handle Sync + badges */
+
+export type PromptApp = { name: string; clientId: string };
+
+export function buildHandleSyncPrompt(app: PromptApp): string {
+  return [
+    `I am building an app ("${app.name}") and want to integrate 'Login with ROUT' as my authentication and identity provider.`,
+    `Please build the standard OIDC OAuth2 flow using the discovery URL: \`${DISCOVERY_URL}\`.`,
+    `My Client ID is: ${app.clientId}.`,
+    "Keep the client secret in a server-side environment variable (ROUT_CLIENT_SECRET); never put it in browser code.",
+    "CRITICAL REQUIREMENT: Do not build a custom username system. Instead, extract the `rout_handle` claim from ROUT's UserInfo endpoint and map it directly as the primary unique `username` field in our database.",
+    "Set up an API route to listen for ROUT's `user.handle.updated` webhook (match users on the `sub` claim, verify the signature header) to keep the username in sync automatically.",
+  ].join("\n");
+}
+
+export function buildBadgePrompt(app: PromptApp): string {
+  return [
+    `I want to integrate the ROUT Badge Issuance API into "${app.name}" to send digital certificates to users' ROUT profiles.`,
+    `Please build a backend service that makes an authenticated POST request to \`${ROUT_ISSUER}/api/v1/badges/issue\`.`,
+    "Include the Authorization Header: `Bearer <YOUR_SECRET_API_KEY>` (read it from a server-side environment variable).",
+    "The JSON payload should include: `recipient_handle` (string), `badge_slug` (string), `issue_date` (ISO date), and a `metadata` object containing the certificate title, description, and verification URL.",
+    "Handle 201 Created (Success) and 404 (Handle Not Found) responses gracefully and show a success toast in the UI.",
+  ].join("\n");
+}
+
+export function handleUpdatedSample(clientId: string): string {
+  return JSON.stringify(
+    {
+      id: "evt_01J9Z8K3QH4M2N",
+      type: "user.handle.updated",
+      created_at: "2026-10-10T10:40:00Z",
+      client_id: clientId,
+      data: { sub: "8f0c2a4e-…", previous_handle: "oldname", rout_handle: "newname" },
+    },
+    null,
+    2,
+  );
+}

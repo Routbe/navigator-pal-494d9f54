@@ -36,3 +36,22 @@ describe("integration templates", () => {
     expect(hintFor(null)).toBeNull();
   });
 });
+
+import { buildBadgePrompt, buildHandleSyncPrompt, handleUpdatedSample } from "./integration-templates";
+import { routHandleClaim } from "./handle-sync";
+
+describe("Universal Handle Sync", () => {
+  it("shares rout_handle only when enabled and profile scope granted", () => {
+    expect(routHandleClaim(true, ["openid", "profile"], "anna")).toBe("anna");
+    expect(routHandleClaim(false, ["openid", "profile"], "anna")).toBeUndefined();
+    expect(routHandleClaim(true, ["openid", "email"], "anna")).toBeUndefined();
+  });
+  it("prompts contain the real client_id and never a secret", () => {
+    const app = { name: "Demo", clientId: "rout_abc123" };
+    for (const p of [buildHandleSyncPrompt(app), buildBadgePrompt(app), handleUpdatedSample(app.clientId)]) {
+      expect(p).not.toMatch(/rcs_|client_secret=/);
+    }
+    expect(buildHandleSyncPrompt(app)).toContain("rout_abc123");
+    expect(handleUpdatedSample(app.clientId)).toContain("rout_abc123");
+  });
+});
