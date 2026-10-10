@@ -37,3 +37,4 @@
 - Rate limits are counted in Neon (`rate_limits`, db/64) via `hitRateLimit`, failing open on database errors. Why: limits must hold across server instances without locking everyone out.
 - Community stats are live counts; reviews show only when `approved` (db/65); empty sections hide. Why: no fake social proof.
 - Approving a verification cancels that user's other open same-tier requests (`verification-dedupe.ts`). Why: no duplicate admin work.
+- `rout_handle` is shared only when the app enabled Universal Handle Sync (`oauth_clients.handle_sync_enabled`, db/67) and the `profile` scope was granted (`routHandleClaim`). Why: handles are identity data the app must opt into.
