@@ -1,0 +1,13 @@
+{
+  "source": "github: Routbe/navigator-pal-dc1b6980 (Rout / rout.be)",
+  "capabilities": [
+    { "capability": "application code (TanStack Start, QR generator, profiles, admin)", "source": "repo", "outcome": "migrated", "status": "verified", "next_action": null },
+    { "capability": "database schema (66 SQL migrations, Neon Postgres)", "source": "db/*.sql", "outcome": "pending", "status": "blocked", "next_action": "DATABASE_URL / MIGRATION_URL nodig; beslissen: Neon behouden of migreren naar Lovable Cloud" },
+    { "capability": "existing records", "source": "none attached", "outcome": "pending", "status": "blocked", "next_action": "per-tabel CSV/JSON exports aanleveren" },
+    { "capability": "auth (Better Auth, WebAuthn passkeys, OAuth)", "source": "repo", "outcome": "code migrated", "status": "blocked", "next_action": "auth secret + DATABASE_URL nodig; gebruikersmigratie naar Lovable Cloud nog te plannen" },
+    { "capability": "Stripe payments / Connect", "source": "repo", "outcome": "preserved", "status": "blocked", "next_action": "Stripe keys via secure secret form bij verificatie" },
+    { "capability": "bunq OAuth, SEPA", "source": "repo", "outcome": "preserved", "status": "blocked", "next_action": "bunq credentials nodig" },
+    { "capability": "Brevo email / SMS", "source": "repo", "outcome": "preserved", "status": "blocked", "next_action": "Brevo API key nodig" },
+    { "capability": "cron endpoints, webhooks, public API", "source": "repo", "outcome": "code migrated", "status": "pending", "next_action": "verifiëren zodra database actief is" }
+  ]
+}
