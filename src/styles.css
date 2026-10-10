@@ -850,3 +850,53 @@ select:focus-visible {
   .marquee-track { animation: none; }
   .marquee-mask { overflow-x: auto; }
 }
+
+/* ---- Status speech bubble (profile avatar) ---- */
+.status-bubble-anchor { position: absolute; z-index: 20; pointer-events: none; }
+.status-bubble-anchor[data-pos="top-right"]    { bottom: 82%; left: 74%; }
+.status-bubble-anchor[data-pos="top"]          { bottom: calc(100% + 12px); left: 50%; translate: -50% 0; }
+.status-bubble-anchor[data-pos="top-left"]     { bottom: 82%; right: 74%; }
+.status-bubble-anchor[data-pos="right"]        { left: calc(100% + 14px); top: 50%; translate: 0 -50%; }
+.status-bubble-anchor[data-pos="left"]         { right: calc(100% + 14px); top: 50%; translate: 0 -50%; }
+.status-bubble-anchor[data-pos="bottom-right"] { top: 82%; left: 74%; }
+.status-bubble-anchor[data-pos="bottom"]       { top: calc(100% + 12px); left: 50%; translate: -50% 0; }
+.status-bubble-anchor[data-pos="bottom-left"]  { top: 82%; right: 74%; }
+
+.status-bubble {
+  --bb-bg: #0d0d12; --bb-fg: #f4f4f5; --bb-border: rgba(255,255,255,.14); --bb-bw: 1px; --bb-shadow: 0 8px 24px -10px rgba(0,0,0,.6);
+  position: relative; pointer-events: auto; width: max-content; max-width: min(12rem, 42vw);
+  padding: .45rem .75rem; border-radius: 1rem; font-size: .75rem; line-height: 1.25; font-weight: 500;
+  background: var(--bb-bg); color: var(--bb-fg); border: var(--bb-bw) solid var(--bb-border); box-shadow: var(--bb-shadow);
+  animation: status-float 3.2s ease-in-out infinite; transition: transform .2s ease, box-shadow .2s ease;
+}
+.status-bubble:hover { animation-play-state: paused; transform: translateY(-3px) scale(1.04); }
+.status-bubble::after {
+  content: ""; position: absolute; width: 10px; height: 10px; background: var(--bb-tail, var(--bb-bg));
+  border: var(--bb-bw) solid var(--bb-border); rotate: 45deg;
+}
+/* Tail per position: always on the side facing the avatar centre. */
+.status-bubble[data-pos="top-right"]::after    { bottom: -6px; left: 12px; border-top: 0; border-left: 0; }
+.status-bubble[data-pos="top"]::after          { bottom: -6px; left: calc(50% - 5px); border-top: 0; border-left: 0; }
+.status-bubble[data-pos="top-left"]::after     { bottom: -6px; right: 12px; border-top: 0; border-left: 0; }
+.status-bubble[data-pos="bottom-right"]::after { top: -6px; left: 12px; border-bottom: 0; border-right: 0; }
+.status-bubble[data-pos="bottom"]::after       { top: -6px; left: calc(50% - 5px); border-bottom: 0; border-right: 0; }
+.status-bubble[data-pos="bottom-left"]::after  { top: -6px; right: 12px; border-bottom: 0; border-right: 0; }
+.status-bubble[data-pos="right"]::after        { left: -6px; top: calc(50% - 5px); border-top: 0; border-right: 0; }
+.status-bubble[data-pos="left"]::after         { right: -6px; top: calc(50% - 5px); border-bottom: 0; border-left: 0; }
+.status-bubble[data-pos^="top-"]  { border-bottom-left-radius: .35rem; }
+.status-bubble[data-pos="top-left"] { border-bottom-left-radius: 1rem; border-bottom-right-radius: .35rem; }
+
+.status-bubble[data-style="cartoon-outline"] { --bb-bg: #ffffff; --bb-fg: #111111; --bb-border: #111111; --bb-bw: 2.5px; --bb-shadow: 3px 3px 0 #111111; font-weight: 700; }
+.status-bubble[data-style="glassmorphism"]   { --bb-bg: rgba(255,255,255,.16); --bb-fg: currentColor; --bb-border: rgba(255,255,255,.35); --bb-tail: rgba(255,255,255,.16); backdrop-filter: blur(12px) saturate(1.4); }
+.status-bubble[data-style="neon-glow"]       { --bb-bg: #070712; --bb-fg: #d9f6ff; --bb-border: #22d3ee; --bb-shadow: 0 0 14px rgba(34,211,238,.55), inset 0 0 8px rgba(34,211,238,.25); }
+.status-bubble[data-style="colorful"]        { --bb-bg: linear-gradient(135deg, #ff5f9e, #ffb347); --bb-tail: #ff8a72; --bb-fg: #ffffff; --bb-border: transparent; }
+.status-bubble[data-style="colorful"][data-custom="1"] { --bb-tail: var(--bb-bg); }
+.status-bubble[data-style="glassmorphism"][data-custom="1"] { --bb-tail: var(--bb-bg); }
+
+@keyframes status-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@media (max-width: 480px) {
+  .status-bubble { max-width: 34vw; font-size: .7rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .status-bubble { animation: none; transition: none; }
+}
