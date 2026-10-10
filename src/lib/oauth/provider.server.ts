@@ -1,3 +1,4 @@
+import { routHandleClaim } from "./handle-sync";
 import { runSchemaEnsure } from "@/lib/db/schema-ensure.server";
 /**
  * "Login met ROUT" — native OAuth 2.1 / OIDC provider.
@@ -45,6 +46,8 @@ export type OAuthClient = {
   flowPreference: "seamless" | "strict";
   /** Mag de app (met toestemming van de gebruiker) publieke activiteit ontvangen? */
   richIdentityEnabled: boolean;
+  /** Universal Handle Sync: share the @handle as `rout_handle`. */
+  handleSyncEnabled: boolean;
   /** `testing` = enkel eigenaar + testgebruikers; `production` = iedereen. */
   publishingStatus: PublishingStatus;
   supportEmail: string | null;
@@ -165,6 +168,7 @@ export async function ensureTables(): Promise<void> {
   // Migratie 44 — uitsluitend voor "Login met ROUT" (geen invloed op rout.be-login).
   await sql`alter table public.oauth_clients add column if not exists flow_preference text not null default 'seamless'`;
   await sql`alter table public.oauth_clients add column if not exists rich_identity_enabled boolean not null default false`;
+  await sql`alter table public.oauth_clients add column if not exists handle_sync_enabled boolean not null default false`;
   await sql`alter table public.oauth_auth_codes add column if not exists acr text`;
   await sql`alter table public.oauth_auth_codes add column if not exists rich_identity boolean not null default false`;
   await sql`create table if not exists public.oauth_step_up_codes (
@@ -229,6 +233,7 @@ function toClient(row: Row): OAuthClient {
     createdAt: new Date(row["created_at"] as string).toISOString(),
     flowPreference: row["flow_preference"] === "strict" ? "strict" : "seamless",
     richIdentityEnabled: Boolean(row["rich_identity_enabled"]),
+    handleSyncEnabled: Boolean(row["handle_sync_enabled"]),
     publishingStatus: row["publishing_status"] === "production" ? "production" : "testing",
     supportEmail: (row["support_email"] as string | null) ?? null,
     legalOwner: (row["legal_owner"] as string | null) ?? null,
@@ -267,6 +272,7 @@ export type ClientInput = {
   scopes: string[];
   flowPreference?: "seamless" | "strict";
   richIdentityEnabled?: boolean;
+  handleSyncEnabled?: boolean;
 };
 
 function sanitize(input: ClientInput) {
@@ -325,6 +331,7 @@ export async function updateClient(
       description = coalesce(${input.description ?? null}, description), redirect_uris = ${uris}, scopes = ${scopes},
       flow_preference = coalesce(${input.flowPreference ?? null}, flow_preference),
       rich_identity_enabled = coalesce(${input.richIdentityEnabled ?? null}::boolean, rich_identity_enabled),
+      handle_sync_enabled = coalesce(${input.handleSyncEnabled ?? null}::boolean, handle_sync_enabled),
       updated_at = now()
     where id = ${id} and owner_user_id = ${ownerUserId} returning *`) as Row[];
   if (!rows[0]) throw new OAuthError("not_found", "Deze app bestaat niet (meer).");
@@ -701,7 +708,7 @@ export async function exchangeAuthorizationCode(input: {
 
   const userId = String(row["user_id"]);
   const scopes = (row["scopes"] as string[] | null) ?? [];
-  const claims = await identityClaims(userId, scopes);
+  const claims = await identityClaims(userId, scopes, { handleSync: client.handleSyncEnabled });
   // Rich Identity: enkel als de app het aanzette én de gebruiker het aanvinkte.
   if (row["rich_identity"] && client.richIdentityEnabled) {
     try {
@@ -747,6 +754,7 @@ export async function exchangeAuthorizationCode(input: {
 export async function identityClaims(
   userId: string,
   scopes: string[],
+  opts: { handleSync?: boolean } = {},
 ): Promise<Record<string, unknown>> {
   const rows = (await sql`select u.email, u.email_confirmed_at, p.username, p.display_name, p.avatar_url
     from public.users u left join public.profiles p on p.user_id = u.id
@@ -759,6 +767,8 @@ export async function identityClaims(
     claims["name"] = row["display_name"] ?? null;
     claims["picture"] = row["avatar_url"] ?? null;
   }
+  const handle = routHandleClaim(Boolean(opts.handleSync), scopes, row["username"]);
+  if (handle !== undefined) claims["rout_handle"] = handle;
   if (scopes.includes("email")) {
     claims["email"] = row["email"] ?? null;
     claims["email_verified"] = Boolean(row["email_confirmed_at"]);
@@ -818,7 +828,7 @@ export async function isVerifiedDeveloper(userId: string): Promise<boolean> {
 /** Verifieert een door ROUT uitgegeven access-token en geeft sub + scopes terug. */
 export async function verifyAccessToken(
   token: string,
-): Promise<{ sub: string; scopes: string[] }> {
+): Promise<{ sub: string; scopes: string[]; clientId: string | null }> {
   const parts = token.split(".");
   if (parts.length !== 3) throw new OAuthError("invalid_token", "Ongeldig token.");
   const [headerPart, payloadPart, signaturePart] = parts as [string, string, string];
@@ -846,12 +856,17 @@ export async function verifyAccessToken(
     sub?: string;
     exp?: number;
     scope?: string;
+    aud?: string;
   };
   if (!payload.sub) throw new OAuthError("invalid_token", "Token mist een gebruiker.");
   if ((payload.exp ?? 0) * 1000 < Date.now()) {
     throw new OAuthError("invalid_token", "Token is verlopen.");
   }
-  return { sub: payload.sub, scopes: (payload.scope ?? "").split(" ").filter(Boolean) };
+  return {
+    sub: payload.sub,
+    scopes: (payload.scope ?? "").split(" ").filter(Boolean),
+    clientId: typeof payload.aud === "string" ? payload.aud : null,
+  };
 }
 
 /** Bestaande toestemming voor deze app, als die alle gevraagde scopes dekt. */

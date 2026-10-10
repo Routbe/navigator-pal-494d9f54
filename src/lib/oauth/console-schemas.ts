@@ -55,6 +55,7 @@ export const clientSchema = z
     scopes: z.array(scopeEnum).max(4),
     flowPreference: z.enum(["seamless", "strict"]).optional(),
     richIdentityEnabled: z.boolean().optional(),
+    handleSyncEnabled: z.boolean().optional(),
   })
   .strict();
 

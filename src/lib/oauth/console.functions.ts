@@ -81,6 +81,7 @@ export const saveOAuthClient = createServerFn({ method: "POST" })
       scopes: data.scopes,
       ...(data.flowPreference ? { flowPreference: data.flowPreference } : {}),
       ...(data.richIdentityEnabled !== undefined ? { richIdentityEnabled: data.richIdentityEnabled } : {}),
+      ...(data.handleSyncEnabled !== undefined ? { handleSyncEnabled: data.handleSyncEnabled } : {}),
     };
     return friendly(async () => {
       if (data.id) {
