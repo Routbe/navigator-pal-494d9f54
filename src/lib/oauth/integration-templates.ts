@@ -13,6 +13,8 @@ export type TemplateApp = {
   requirePkce: boolean;
   richIdentityEnabled: boolean;
   accountDiscoveryEnabled: boolean;
+  /** Universal Handle Sync: `rout_handle` claim + `user.handle.updated` webhook. */
+  handleSyncEnabled?: boolean;
 };
 
 const STACKS: Record<Stack, string> = {
@@ -37,9 +39,17 @@ export const SCOPE_CLAIMS: Record<string, string[]> = {
   linked_accounts: ["linked_accounts[].provider", "linked_accounts[].account_id"],
 };
 
-export function claimsForScopes(scopes: string[]): string[] {
+/** Every claim ROUT can ever send (advertised as `claims_supported` in discovery). */
+export const CLAIMS_SUPPORTED = [
+  "sub", "iss", "aud", "exp", "iat", "nonce", "acr",
+  "preferred_username", "name", "picture", "email", "email_verified",
+  "linked_accounts", "rout_handle", "rout_public_activity",
+] as const;
+
+export function claimsForScopes(scopes: string[], handleSync = false): string[] {
   const out = new Set<string>(["sub"]);
   for (const s of scopes) for (const c of SCOPE_CLAIMS[s] ?? []) out.add(c);
+  if (handleSync && scopes.includes("profile")) out.add("rout_handle");
   return [...out];
 }
 
@@ -57,7 +67,7 @@ export function buildAiPrompt(app: TemplateApp, tool: AiTool, stack: Stack): str
     `- Scopes: ${scopes}`,
     `- Redirect URI: ${redirect}`,
     `- PKCE: ${app.requirePkce ? "REQUIRED (S256)" : "recommended (S256)"}`,
-    `- Claims you will receive (userinfo / id_token): ${claimsForScopes(app.scopes).join(", ")}`,
+    `- Claims you will receive (userinfo / id_token): ${claimsForScopes(app.scopes, app.handleSyncEnabled).join(", ")}`,
     "",
     "## Flow requirements",
     "1. Fetch endpoints from the Discovery URL (do not hardcode them).",
@@ -73,7 +83,13 @@ export function buildAiPrompt(app: TemplateApp, tool: AiTool, stack: Stack): str
   ];
   if (app.richIdentityEnabled) {
     lines.push(
-      "- Rich Identity is enabled: add booleans `is_verified_person`, `is_verified_business`, `is_influencer` and update them from claims on every login (never trust client input for these).",
+      "- Rich Identity is enabled: when the member ticked the extra checkbox, the id_token contains `rout_public_activity` (array of { kind, title, occurred_at }). Store it in a jsonb column `rout_public_activity`, overwrite it on every login, and clear it when the claim is absent (the member withdrew consent). Never accept it from client input.",
+    );
+  }
+  if (app.handleSyncEnabled) {
+    lines.push(
+      "- Universal Handle Sync is enabled: the `rout_handle` claim (requires the `profile` scope) is the user's username. Add a UNIQUE `username` column, set it from `rout_handle` on every login, and do NOT build a separate username picker.",
+      "- Add a POST route `/api/webhooks/rout` for the `user.handle.updated` event: verify the `x-rout-signature` header (HMAC-SHA256 of `${t}.${rawBody}` with ROUT_WEBHOOK_SECRET, reject if older than 5 minutes), dedupe on the event `id`, find the user by `data.sub` and update `username` to `data.rout_handle`. Return 2xx quickly; ROUT retries non-2xx responses.",
     );
   }
   if (app.accountDiscoveryEnabled) {
@@ -92,12 +108,11 @@ export function buildAiPrompt(app: TemplateApp, tool: AiTool, stack: Stack): str
 }
 
 export function buildSqlSchema(app: TemplateApp): string {
-  const rich = app.richIdentityEnabled
-    ? `,
-  is_verified_person   boolean not null default false,
-  is_verified_business boolean not null default false,
-  is_influencer        boolean not null default false`
-    : "";
+  const rich =
+    (app.handleSyncEnabled ? `,
+  username       text unique,           -- ROUT 'rout_handle' claim (Universal Handle Sync)` : "") +
+    (app.richIdentityEnabled ? `,
+  rout_public_activity jsonb,           -- Rich Identity, only with member consent` : "");
   let out = `-- Users: one row per person in your app
 create table users (
   id             uuid primary key default gen_random_uuid(),
@@ -121,16 +136,25 @@ create table user_identities (
 );
 -- Merge rule: only link when the id_token says email_verified = true.`;
   }
+  if (app.handleSyncEnabled) {
+    out += `
+
+-- Universal Handle Sync: processed webhook events (idempotency)
+create table rout_webhook_events (
+  id          text primary key,          -- event id from ROUT
+  type        text not null,             -- 'user.handle.updated'
+  received_at timestamptz not null default now()
+);`;
+  }
   return out;
 }
 
 export function buildPrismaSchema(app: TemplateApp): string {
-  const rich = app.richIdentityEnabled
-    ? `
-  isVerifiedPerson   Boolean @default(false) @map("is_verified_person")
-  isVerifiedBusiness Boolean @default(false) @map("is_verified_business")
-  isInfluencer       Boolean @default(false) @map("is_influencer")`
-    : "";
+  const rich =
+    (app.handleSyncEnabled ? `
+  username      String?  @unique // ROUT 'rout_handle' claim` : "") +
+    (app.richIdentityEnabled ? `
+  routPublicActivity Json? @map("rout_public_activity")` : "");
   let out = `model User {
   id            String   @id @default(uuid())
   email         String?  @unique
@@ -153,6 +177,17 @@ model UserIdentity {
   @@unique([userId, provider])
 }`;
   }
+  if (app.handleSyncEnabled) {
+    out += `
+
+model RoutWebhookEvent {
+  id         String   @id
+  type       String
+  receivedAt DateTime @default(now()) @map("received_at")
+
+  @@map("rout_webhook_events")
+}`;
+  }
   return out;
 }
 
@@ -165,21 +200,78 @@ export function buildHandleSyncPrompt(app: PromptApp): string {
     `I am building an app ("${app.name}") and want to integrate 'Login with ROUT' as my authentication and identity provider.`,
     `Please build the standard OIDC OAuth2 flow using the discovery URL: \`${DISCOVERY_URL}\`.`,
     `My Client ID is: ${app.clientId}.`,
-    "Keep the client secret in a server-side environment variable (ROUT_CLIENT_SECRET); never put it in browser code.",
-    "CRITICAL REQUIREMENT: Do not build a custom username system. Instead, extract the `rout_handle` claim from ROUT's UserInfo endpoint and map it directly as the primary unique `username` field in our database.",
-    "Set up an API route to listen for ROUT's `user.handle.updated` webhook (match users on the `sub` claim, verify the signature header) to keep the username in sync automatically.",
+    "CRITICAL REQUIREMENT: Do not build a custom username system. Instead, extract the `rout_handle` claim from ROUT's UserInfo endpoint and map it directly as the primary unique `username` field in our database. Set up an API route to listen for ROUT's `user.handle.updated` webhook to keep the username in sync.",
+    "",
+    "## Configuration",
+    "- client_secret: env var ROUT_CLIENT_SECRET (server only, never in browser code).",
+    "- Webhook secret: env var ROUT_WEBHOOK_SECRET (server only).",
+    "- Scopes: `openid profile email` (`profile` is required for `rout_handle`).",
+    "",
+    "## Sign-in flow",
+    "1. Read all endpoints from the discovery URL; never hardcode them.",
+    "2. Authorization Code + PKCE (S256). Generate code_verifier, state and nonce per attempt; keep them in an HttpOnly, Secure, SameSite=Lax cookie.",
+    "3. On the callback: check `state`, exchange the code on the server, validate the id_token via JWKS (ES256: iss, aud === client_id, exp, nonce).",
+    "4. Call the UserInfo endpoint with the access token and read `sub` and `rout_handle`.",
+    "5. Upsert the user by `rout_id = sub` (never by handle — handles can change). Set `username = rout_handle` on every login.",
+    "6. Create your own session cookie; never expose tokens to client-side JavaScript.",
+    "7. Map `?error=` values (access_denied, login_required, invalid_request…) to friendly messages.",
+    "",
+    "## Database",
+    "- users: `rout_id text unique not null`, `username text unique not null`, `email`, `email_verified`.",
+    "- rout_webhook_events: `id text primary key`, `type text`, `received_at timestamptz` (idempotency).",
+    "- Users must not be able to edit `username` in your UI; show it as '@handle · managed by ROUT'.",
+    "- Conflict: if another local row still holds that username (stale), clear it on that row first inside the same transaction.",
+    "",
+    "## Webhook: POST /api/webhooks/rout",
+    "- Header `x-rout-signature: t=<unix>,v1=<hex>`; v1 = HMAC-SHA256(ROUT_WEBHOOK_SECRET, `${t}.${rawBody}`). Compare in constant time; reject if |now - t| > 300 s.",
+    "- Body: { id, type: 'user.handle.updated', created_at, client_id, data: { sub, previous_handle, rout_handle } }.",
+    "- Ignore events whose `client_id` is not mine. Skip already-seen `id`s. Update the user where rout_id = data.sub.",
+    "- Respond 200 within 5 s; ROUT retries non-2xx responses with backoff.",
+    "",
+    "## Tests to write",
+    "- First login creates a user with username = rout_handle.",
+    "- Second login with a changed handle updates the username.",
+    "- Webhook with a bad signature → 401; with an old timestamp → 401; duplicate event id → 200 without changes.",
   ].join("\n");
 }
 
 export function buildBadgePrompt(app: PromptApp): string {
   return [
-    `I want to integrate the ROUT Badge Issuance API into "${app.name}" to send digital certificates to users' ROUT profiles.`,
+    `I want to integrate the ROUT Badge Issuance API into "${app.name}" (client_id ${app.clientId}) to send digital certificates to users' ROUT profiles.`,
+    "NOTE: this API is in preview; build it behind a feature flag ROUT_BADGES_ENABLED.",
     `Please build a backend service that makes an authenticated POST request to \`${ROUT_ISSUER}/api/v1/badges/issue\`.`,
-    "Include the Authorization Header: `Bearer <YOUR_SECRET_API_KEY>` (read it from a server-side environment variable).",
-    "The JSON payload should include: `recipient_handle` (string), `badge_slug` (string), `issue_date` (ISO date), and a `metadata` object containing the certificate title, description, and verification URL.",
-    "Handle 201 Created (Success) and 404 (Handle Not Found) responses gracefully and show a success toast in the UI.",
+    "Include the Authorization Header: `Bearer <YOUR_SECRET_API_KEY>` read from env var ROUT_API_KEY (server only, never in the browser).",
+    "Also send an `Idempotency-Key` header (UUID per certificate) so retries never create duplicate badges.",
+    "",
+    "## Request body",
+    "```json",
+    '{ "recipient_handle": "anna", "badge_slug": "course-completed", "issue_date": "2026-10-10",',
+    '  "metadata": { "title": "Course completed", "description": "Finished the Advanced course", "verification_url": "https://example.com/verify/abc" } }',
+    "```",
+    "",
+    "## Responses",
+    "- 201 Created → store the returned badge id and show a success toast.",
+    "- 404 Handle Not Found → show 'This ROUT handle does not exist' and let the admin correct it.",
+    "- 401/403 → log and alert: the API key is wrong or lacks permission.",
+    "- 429 or 5xx → retry with exponential backoff (max 5 tries) using the same Idempotency-Key.",
+    "",
+    "## Deliverables",
+    "- A server function/route `issueBadge(input)` with input validation (zod).",
+    "- An admin UI form with the fields above and a success/error toast.",
+    "- A table `issued_badges` (id, recipient_handle, badge_slug, rout_badge_id, idempotency_key unique, created_at).",
   ].join("\n");
 }
+
+export const WEBHOOK_VERIFY_SNIPPET = `import { createHmac, timingSafeEqual } from "node:crypto";
+
+export function verifyRoutSignature(rawBody: string, header: string, secret: string) {
+  const parts = Object.fromEntries(header.split(",").map((p) => p.split("=")));
+  const t = Number(parts.t);
+  if (!t || Math.abs(Date.now() / 1000 - t) > 300) return false; // replay window 5 min
+  const expected = createHmac("sha256", secret).update(\`\${t}.\${rawBody}\`).digest("hex");
+  const got = Buffer.from(parts.v1 ?? "", "hex");
+  return got.length === 32 && timingSafeEqual(got, Buffer.from(expected, "hex"));
+}`;
 
 export function handleUpdatedSample(clientId: string): string {
   return JSON.stringify(

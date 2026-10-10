@@ -17,7 +17,8 @@ describe("integration templates", () => {
     expect(p).toContain("rout_abc");
     expect(p).toContain(DISCOVERY_URL);
     expect(p).toContain("openid email");
-    expect(p).toContain("is_verified_person");
+    expect(p).toContain("rout_public_activity");
+    expect(p).not.toContain("is_verified_person");
     expect(p).not.toMatch(/routsec_/);
   });
   it("adds identity link table only with auto-discovery", () => {
@@ -53,5 +54,23 @@ describe("Universal Handle Sync", () => {
     }
     expect(buildHandleSyncPrompt(app)).toContain("rout_abc123");
     expect(handleUpdatedSample(app.clientId)).toContain("rout_abc123");
+  });
+});
+
+import { CLAIMS_SUPPORTED, claimsForScopes } from "./integration-templates";
+describe("Handle Sync in templates", () => {
+  const base = { clientId: "rout_x", scopes: ["openid", "profile"], redirectUris: [], requirePkce: true, richIdentityEnabled: false, accountDiscoveryEnabled: false };
+  it("discovery advertises rout_handle", () => {
+    expect(CLAIMS_SUPPORTED).toContain("rout_handle");
+    expect(CLAIMS_SUPPORTED).toContain("rout_public_activity");
+  });
+  it("adds username + webhook only when handle sync is on", () => {
+    expect(buildAiPrompt(base, "cursor", "nextjs")).not.toContain("user.handle.updated");
+    expect(buildAiPrompt({ ...base, handleSyncEnabled: true }, "cursor", "nextjs")).toContain("user.handle.updated");
+    expect(buildSqlSchema(base)).not.toContain("username");
+    expect(buildSqlSchema({ ...base, handleSyncEnabled: true })).toContain("rout_webhook_events");
+    expect(buildPrismaSchema({ ...base, handleSyncEnabled: true })).toContain("RoutWebhookEvent");
+    expect(claimsForScopes(["openid", "profile"], true)).toContain("rout_handle");
+    expect(claimsForScopes(["openid", "email"], true)).not.toContain("rout_handle");
   });
 });
