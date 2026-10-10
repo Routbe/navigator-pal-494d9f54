@@ -1,3 +1,5 @@
+import { PresenceIcon } from "@/lib/presence-icons";
+import type { PresenceIndicator } from "@/lib/status-bubble";
 import { useEffect, useState, type ReactNode } from "react";
 import { AvatarDecorationLayer } from "@/components/profile/AvatarDecorationLayer";
 import {
@@ -156,6 +158,8 @@ export function AvatarFrameWrapper({
   className = "",
   decoration = "none",
   presence = "none",
+  indicator = "color",
+  emoji = null,
 }: {
   frame: AvatarFrame;
   theme: FrameTheme;
@@ -165,6 +169,9 @@ export function AvatarFrameWrapper({
   decoration?: AvatarDecoration;
   /** Statusbolletje rechtsonder. */
   presence?: PresenceStatus;
+  /** Effen kleur, kleur + icoon, of één emoji in plaats van het bolletje. */
+  indicator?: PresenceIndicator;
+  emoji?: string | null;
 }) {
   const def = avatarFrameDef(frame);
   // SSR rendert altijd het volledige kader; na hydratatie schakelen trage
@@ -185,24 +192,38 @@ export function AvatarFrameWrapper({
       {children}
       {!light && <FrameOverlay overlay={def.overlay ?? null} />}
       {!light && <AvatarDecorationLayer decoration={decoration} />}
-      {presence !== "none" && (
+      {indicator === "emoji" && emoji ? (
+        <span
+          title={status.label}
+          aria-label={status.label === "Verborgen" ? "Status" : status.label}
+          className="absolute bottom-0 right-0 flex h-[30%] w-[30%] min-h-4 min-w-4 items-center justify-center leading-none [container-type:size]"
+        >
+          <span className="text-[80cqh] drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]" aria-hidden>{emoji}</span>
+        </span>
+      ) : presence !== "none" && (
         <span
           title={status.label}
           aria-label={status.label}
-          className="absolute bottom-0 right-0 h-[26%] w-[26%] min-h-3 min-w-3 rounded-full"
-          style={{ background: status.color, boxShadow: `0 0 0 3px ${theme.bg}` }}
+          className="absolute bottom-0 right-0 flex h-[26%] w-[26%] min-h-3 min-w-3 items-center justify-center rounded-full"
+          style={{ background: status.color, boxShadow: `0 0 0 3px ${theme.bg}`, color: "rgba(255,255,255,0.78)" }}
         >
-          {presence === "dnd" && (
-            <span
-              className="absolute left-1/2 top-1/2 h-[2px] w-[55%] -translate-x-1/2 -translate-y-1/2 rounded-full"
-              style={{ background: theme.bg }}
-            />
-          )}
-          {presence === "idle" && (
-            <span
-              className="absolute left-[18%] top-[8%] h-[70%] w-[70%] rounded-full"
-              style={{ background: theme.bg }}
-            />
+          {indicator === "color_with_icon" ? (
+            <PresenceIcon status={presence} />
+          ) : (
+            <>
+              {presence === "dnd" && (
+                <span
+                  className="absolute left-1/2 top-1/2 h-[2px] w-[55%] -translate-x-1/2 -translate-y-1/2 rounded-full"
+                  style={{ background: theme.bg }}
+                />
+              )}
+              {presence === "idle" && (
+                <span
+                  className="absolute left-[18%] top-[8%] h-[70%] w-[70%] rounded-full"
+                  style={{ background: theme.bg }}
+                />
+              )}
+            </>
           )}
         </span>
       )}

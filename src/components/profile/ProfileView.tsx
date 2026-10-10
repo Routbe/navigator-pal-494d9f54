@@ -77,6 +77,7 @@ import {
   VISIT_EFFECT_TEST_EVENT,
 } from "@/lib/visit-effects";
 import { AvatarFrameWrapper } from "@/components/profile/AvatarFrameWrapper";
+import { StatusBubble } from "@/components/profile/StatusBubble";
 import { downloadVCard } from "@/lib/vcard";
 import { profileText } from "@/lib/profile-i18n";
 
@@ -309,11 +310,14 @@ export function ProfileView({
         className={`relative mx-auto flex w-full flex-col items-center ${wide ? "max-w-2xl" : "max-w-md"}`}
       >
         <div className="flex w-full flex-col items-center" style={sectionStyle("avatar")}>
+        <div className="relative inline-flex">
         <AvatarFrameWrapper
           frame={prefs.avatarFrame}
           theme={t}
           decoration={prefs.avatarDecoration}
           presence={prefs.presence}
+          indicator={prefs.presenceIndicator}
+          emoji={prefs.presenceEmoji}
         >
           {profile.avatar_url ? (
             <img
@@ -338,6 +342,16 @@ export function ProfileView({
             </div>
           )}
         </AvatarFrameWrapper>
+        {prefs.statusLine && (
+          <StatusBubble
+            text={prefs.statusLine}
+            position={prefs.statusBubblePosition}
+            bubbleStyle={prefs.statusBubbleStyle}
+            bg={prefs.statusBubbleBg}
+            font={prefs.statusBubbleFont}
+          />
+        )}
+        </div>
 
         <h1
           className="mt-4 flex items-center gap-1.5 break-words text-center font-display text-2xl"
@@ -406,11 +420,6 @@ export function ProfileView({
           >
             {prefs.locationBadge}
           </span>
-        )}
-        {prefs.statusLine && (
-          <p className="mt-1 text-center text-xs font-medium" style={{ color: t.text }}>
-            {prefs.statusLine}
-          </p>
         )}
 
         {memberSince && (

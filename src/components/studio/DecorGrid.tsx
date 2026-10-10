@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Heart, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { filterDecor } from "@/lib/decor-filter";
 
 export type DecorItem = { id: string; label: string; category: string; keywords?: string };
 
@@ -39,7 +40,7 @@ export function DecorGrid({
   favKey: string;
   placeholder?: string;
 }) {
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState("popular");
   const [q, setQ] = useState("");
   const [limit, setLimit] = useState(PAGE);
   const [favs, setFavs] = useState<string[]>([]);
@@ -58,22 +59,8 @@ export function DecorGrid({
     });
   };
 
-  const list = useMemo(() => {
-    const words = q.toLowerCase().trim().split(/\s+/).filter(Boolean);
-    return items.filter((d) => {
-      if (filter === "fav") {
-        if (!favs.includes(d.id)) return false;
-      } else if (filter !== "all" && d.category !== filter) return false;
-      if (!words.length) return true;
-      const hay = `${d.label} ${d.category} ${d.keywords ?? ""} ${d.id.replace(/_/g, " ")}`.toLowerCase();
-      return words.every((w) => hay.includes(w));
-    });
-  }, [items, filter, q, favs]);
-
-  const showTop = filter === "all" && !q;
-  const top = showTop
-    ? [...new Set([...favs, ...popular])].map((id) => items.find((i) => i.id === id)).filter(Boolean)
-    : [];
+  const list = useMemo(() => filterDecor(items, { filter, q, favs, popular }), [items, filter, q, favs, popular]);
+  const searching = q.trim().length > 0;
 
   const tile = (d: DecorItem) => (
     <div key={d.id} className="relative [content-visibility:auto] [contain-intrinsic-size:96px]">
@@ -119,14 +106,14 @@ export function DecorGrid({
           />
         </label>
         <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-          {[...categories, { id: "fav", label: `♥ Favorieten${favs.length ? ` (${favs.length})` : ""}` }].map((c) => (
+          {[{ id: "popular", label: "★ Populair" }, ...categories.filter((c) => c.id !== "popular"), { id: "fav", label: `♥ Favorieten${favs.length ? ` (${favs.length})` : ""}` }].map((c) => (
             <button
               key={c.id}
               type="button"
               onClick={() => setFilter(c.id)}
               className={cn(
                 "h-8 shrink-0 rounded-full border px-3 text-[11px] font-medium transition-colors",
-                filter === c.id ? "border-primary/50 bg-primary/10" : "border-border",
+                !searching && filter === c.id ? "border-primary/50 bg-primary/10" : "border-border",
               )}
             >
               {c.label}
@@ -135,18 +122,11 @@ export function DecorGrid({
         </div>
       </div>
 
-      {top.length > 0 && (
-        <div>
-          <p className="mb-2 text-[11px] font-medium text-muted-foreground">Populair & favorieten</p>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
-            {top.map((d) => tile(d!))}
-          </div>
-        </div>
-      )}
-
-      <p className="text-[11px] text-muted-foreground">{list.length} stijlen</p>
+      <p className="text-[11px] text-muted-foreground">
+        {searching ? `${list.length} resultaten in alle ${items.length} stijlen` : filter === "popular" ? `Populair & favorieten · ${items.length} stijlen via “Alles”` : `${list.length} stijlen`}
+      </p>
       {list.length === 0 ? (
-        <p className="py-6 text-center text-xs text-muted-foreground">Niets gevonden voor “{q}”.</p>
+        <p className="py-6 text-center text-xs text-muted-foreground">{searching ? <>Niets gevonden voor “{q}”.</> : filter === "fav" ? "Nog geen favorieten — tik op het hartje." : "Niets in deze groep."}</p>
       ) : (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
           {list.slice(0, limit).map(tile)}

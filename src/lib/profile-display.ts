@@ -1,3 +1,14 @@
+import {
+  normalizeBubbleFont,
+  normalizeBubblePosition,
+  normalizeBubbleStyle,
+  normalizePresenceIndicator,
+  singleEmoji,
+  type BubbleFont,
+  type BubblePosition,
+  type BubbleStyle,
+  type PresenceIndicator,
+} from "@/lib/status-bubble";
 import { isEmptyLayers, normalizeDesignLayers, serializeDesignLayers } from "./design-layers";
 import { stripBioLinks } from "@/lib/bio-rules";
 /**
@@ -167,8 +178,15 @@ export interface ProfileDisplayPrefs {
   /** Overschrijft de themakleur van het canvas / het patroonaccent. */
   canvasColor: string | null;
   patternColor: string | null;
-  /** Korte statuslijn onder de handle ("Strategic Architect"). */
+  /** Korte status, getoond als spreekballon bij de avatar. */
   statusLine: string | null;
+  /** Spreekballon: plaats t.o.v. de avatar, stijl, eigen achtergrond en lettertype. */
+  statusBubblePosition: BubblePosition;
+  statusBubbleStyle: BubbleStyle;
+  statusBubbleBg: string | null;
+  statusBubbleFont: BubbleFont;
+  /** Statusbolletje: effen kleur, kleur + icoon, of één emoji (`presenceEmoji`). */
+  presenceIndicator: PresenceIndicator;
   nameAccent: NameAccent;
   /** Social sharing & SEO (Studio → "Social Sharing & SEO"). */
   metaTitle: string | null;
@@ -243,6 +261,11 @@ export const DEFAULT_DISPLAY_PREFS: ProfileDisplayPrefs = {
   canvasColor: null,
   patternColor: null,
   statusLine: null,
+  statusBubblePosition: "top-right",
+  statusBubbleStyle: "obsidian-flat",
+  statusBubbleBg: null,
+  statusBubbleFont: "theme",
+  presenceIndicator: "color",
   nameAccent: "classic",
   metaTitle: null,
   metaDescription: null,
@@ -425,7 +448,7 @@ export function parseDisplayPrefs(raw: unknown): ProfileDisplayPrefs {
     avatarDecoration: normalizeAvatarDecoration(r["avatarDecoration"]),
     presence: normalizePresence(r["presence"]),
     presenceText: textOrNull(r["presenceText"], 60),
-    presenceEmoji: textOrNull(r["presenceEmoji"], 8),
+    presenceEmoji: singleEmoji(r["presenceEmoji"]),
     bannerStyle: oneOf(r["bannerStyle"], ["none", "gradient", "image"] as const, "none"),
     bannerImageUrl: urlOrNull(r["bannerImageUrl"]),
     bannerFrom: colorOrNull(r["bannerFrom"]),
@@ -448,6 +471,11 @@ export function parseDisplayPrefs(raw: unknown): ProfileDisplayPrefs {
     canvasColor: colorOrNull(r["canvasColor"]),
     patternColor: colorOrNull(r["patternColor"]),
     statusLine: textOrNull(r["statusLine"], 60),
+    statusBubblePosition: normalizeBubblePosition(r["statusBubblePosition"]),
+    statusBubbleStyle: normalizeBubbleStyle(r["statusBubbleStyle"]),
+    statusBubbleBg: colorOrNull(r["statusBubbleBg"]),
+    statusBubbleFont: normalizeBubbleFont(r["statusBubbleFont"]),
+    presenceIndicator: normalizePresenceIndicator(r["presenceIndicator"]),
     nameAccent: oneOf(
       r["nameAccent"],
       NAME_ACCENTS.map((o) => o.id),
