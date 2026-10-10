@@ -1,0 +1,4 @@
+## Payments & badges rules
+- Tip pages never move money through ROUT: EPC/SEPA QR + text IBAN is the always-on default; optional creator-owned PSP keys (Stripe/Mollie) live only AES-GCM encrypted in `psp_credentials` (db/58, `crypto/secretbox.server.ts`, `PSP_ENCRYPTION_KEY`) and are decrypted only inside `startPspTip`. Why: zero platform liability and no plaintext third-party secrets.
+- Tip settings/PSP access requires a verified account with a root handle, checked in every `tip-page.server.ts` entry point; the IBAN holder must match the verified legal (or approved business) name. Why: prevents fraud via free aliases.
+- Custom badges (`custom_badges`/`user_custom_badges`, db/57) are admin-granted and additive to the identity mark; influencer/business badge types are coerced server-side unless approved, and privacy-shield profiles never return legal name/country from `readPublicProfile`. Why: privacy and exclusivity enforced at the boundary, not the UI.

@@ -1,0 +1,13 @@
+# Roadmap
+- [x] VIP-handles crash, batch approval, header translation, Explore + About redesign
+- [x] Invite links: invitation card on profile + 10% for new member (tested)
+- [x] AT Protocol engine shared by Bluesky + Wsocial (wsocial.eu), linked-accounts table (db/66)
+- [ ] Wire Bluesky/Wsocial verify button to the new engine (needs Neon to test)
+- [ ] Google YouTube extra-permission link + auto badge (needs Google keys + consent review)
+- [ ] GitHub/GitLab auto badge on link (needs Neon to test)
+- [ ] X / Meta login flows (blocked: no developer apps/keys yet)
+- [ ] Mobile/desktop polish of Profile Hub + dashboard (needs a signed-in session → needs Neon)
+- [ ] Admin portal overhaul (needs Neon to load real data)
+- [ ] Explore: category/platform filters, extra rows, infinite scroll
+- [ ] Translate remaining fixed Dutch dashboard labels; admin screen to approve reviews
+- [ ] Run db/65 + db/66 migrations (needs Neon)
