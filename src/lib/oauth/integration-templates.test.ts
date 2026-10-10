@@ -57,7 +57,7 @@ describe("Universal Handle Sync", () => {
   });
 });
 
-import { CLAIMS_SUPPORTED, claimsForScopes } from "./integration-templates";
+import { CLAIMS_SUPPORTED } from "./integration-templates";
 describe("Handle Sync in templates", () => {
   const base = { clientId: "rout_x", scopes: ["openid", "profile"], redirectUris: [], requirePkce: true, richIdentityEnabled: false, accountDiscoveryEnabled: false };
   it("discovery advertises rout_handle", () => {
